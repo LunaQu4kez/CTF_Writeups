@@ -186,7 +186,9 @@ for i in range(1024):
 
 
 
-### Stegdetect 探测 jpg 加密
+### 检测 jpg 加密
+
+#### Stegdetect 
 
 可以检测到通过 JSteg、JPHide、OutGuess、Invisible Secrets、F5、appendX 和 Camouflage 等这些隐写工具隐藏的信息，并且还具有基于字典暴力破解密码方法提取通过 Jphide、outguess 和 jsteg-shell 方式嵌入的隐藏信息
 
@@ -207,6 +209,16 @@ o 检测图像中的信息是否是用outguess嵌入的。
 p 检测图像中的信息是否是用jphide嵌入的。
 i 检测图像中的信息是否是用invisible secrets嵌入的。
 ```
+
+#### Steghide
+
+有时候 Stegdetect 检测不出来的，可以用 Steghide 检测
+
+```shell
+$ steghide extract -sf test.jpg -p password
+```
+
+没有 password 的加密直接回车即可
 
 
 
