@@ -426,13 +426,275 @@ quetion.zip
 
 
 
-## 流量提取
+## 流量分析
 
 PCAP 文件，可能需要先进行修复和重构传输文件，再进行分析。总体大概分为
 
 - 流量包修复
 - 协议分析
 - 数据提取
+
+
+
+### 流量包修复
+
+好像考察较少，基本是用 [pcapfix](http://f00l.de/hacking/pcapfix.php) 这个工具来修复
+
+对于流量包的文件格式，具体可以看[这里](https://ctf-wiki.org/misc/traffic/fix/)
+
+
+
+### 数据抓取
+
+#### wireshark
+
+**wireshark 自动分析**
+
+```
+文件 -> 导出对象 -> http
+```
+
+**手动数据提取**
+
+```
+文件 -> 导出分组解析结果
+```
+
+#### tshark
+
+```shell
+tshark -r **.pcap –Y ** -T fields –e ** | **** > data
+```
+
+```
+Usage:
+  -Y <display filter>      packet displaY filter in Wireshark display filter
+                           syntax
+  -T pdml|ps|psml|json|jsonraw|ek|tabs|text|fields|?
+                           format of text output (def: text)
+  -e <field>               field to print if -Tfields selected (e.g. tcp.port,
+                           _ws.col.Info)
+```
+
+例：
+
+```shell
+tshark -r usb1.pcap -T fields -e usb.capdata > usbdata.txt
+```
+
+
+
+### Wireshark
+
+#### 显示过滤器
+
+常用命令：
+
+1. 过滤 IP
+
+   ```
+   ip.src eq x.x.x.x or ip.dst eq x.x.x.x 或 ip.addr eq x.x.x.x
+   ```
+
+2. 过滤端口
+
+   ```
+   tcp.port eq 80 or udp.port eq 80
+   tcp.dstport == 80  # tcp协议的目标端口为80
+   tcp.srcport == 80  # tcp协议的源端口为80
+   tcp.port >= 1 and tcp.port <= 80
+   ```
+
+3. 过滤协议
+
+   ```
+   tcp/udp/http/ftp/dns/ip/...
+   ```
+
+4. 过滤 mac
+
+   ```
+   eth.dst == A0:00:00:04:C5:84  # 过滤目标mac
+   ```
+
+5. 包长度过滤
+
+   ```
+   udp.length == 26  # udp本身固定长度8加上udp下面数据包的和
+   tcp.len >= 7  # 指ip数据包，不包括tcp本身
+   ip.len == 94  # 除去以太网头固定长度14，其余部分的长度
+   frame.len == 119  # 整个数据包长度
+   ```
+
+#### 协议分级 Protocol History
+
+```
+统计 -> 协议分级
+```
+
+这个窗口实现的是捕捉文件包含的所有协议的树状分支
+
+#### 对话 Conversation
+
+```
+统计 -> 对话
+```
+
+发生于一特定端点的 IP 间的所有流量，查看收发大量数据流的 IP 地址
+
+#### 端点 Endpoints
+
+```
+统计 -> 端点
+```
+
+这一工具列出了 Wireshark 发现的所有 endpoints 上的统计信息
+
+
+
+### HTTP & HTTPS
+
+`HTTP` ( `Hyper Text Transfer Protocol` ，也称为超文本传输协议) 是一种用于分布式、协作式和超媒体信息系统的应用层协议。 `HTTP` 是万维网的数据通信的基础。
+
+`HTTPs = HTTP + SSL / TLS`，服务端和客户端的信息传输都会通过 TLS 进行加密，所以传输的数据都是加密后的数据。
+
+处理 HPPTS 需要导入 `server.key.insecure` 解密
+
+```
+编辑 -> 首选项 -> Protocols -> SSL -> Edit RSA keys list
+```
+
+
+
+### DNS
+
+`DNS` 通常为 `UDP` 协议，报文格式如下
+
+```
++-------------------------------+
+| 报文头                         |
++-------------------------------+
+| 问题 (向服务器提出的查询部分)    |
++-------------------------------+
+| 回答 (服务器回复的资源记录)      |
++-------------------------------+
+| 授权 (权威的资源记录)           |
++-------------------------------+
+| 额外的 (额外的资源记录)         |
++-------------------------------+
+```
+
+查询包只有头部和问题两个部分， `DNS` 收到查询包后，根据查询到的信息追加回答信息、授权机构、额外资源记录，并且修改了包头的相关标识再返回给客户端。
+
+每个 `question` 部分
+
+```
+   0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
+ +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ |                                               |
+ /                     QNAME                     /
+ /                                               /
+ +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ |                     QTYPE                     |
+ +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ |                     QCLASS                    |
+ +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+```
+
+- `QNAME` ：为查询的域名，是可变长的，编码格式为：将域名用. 号划分为多个部分，每个部分前面加上一个字节表示该部分的长度，最后加一个 `0` 字节表示结束
+- `QTYPE` ：占 `16` 位，表示查询类型，共有 `16` 种，常用值有：`1` ( `A` 记录，请求主机 `IP` 地址)、`2` ( `NS` ，请求授权 `DNS` 服务器)、`5` ( `CNAME` 别名查询)
+
+
+
+### WIFI
+
+协议分析发现只有 wireless LAN 协议 (802.11)，很可能是 WPA 或者 WEP 加密的无线数据包
+
+使用 aircrack-ng 工具进行破解，pass.txt 为字典，可以使用 kali 自带的 rockyou.txt，在 `/usr/share/wordlists/rockyou.txt.gz` 中
+
+```
+aircrack-ng xxx.cap  # 检查cap包
+aircrack-ng xxx.cap -w pass.txt  # 跑字典进行握手包破解
+```
+
+
+
+### USB
+
+USB 协议的数据部分在 Leftover Capture Data 域之内
+
+```
+右键 Leftover Capture Data -> 应用为列
+```
+
+#### 键盘信息
+
+键盘数据包的数据长度为 8 个字节，击键信息集中在第 3 个字节。根据 data 值与具体键位的对应关系，可从数据包恢复出键盘的案件信息
+
+<div align="center">
+    <img src=".\pic\misc06.png" alt="" width="500">
+</div>
+
+分析一个流量包，可以知道， `USB` 协议的数据部分在 `Leftover Capture Data` 域之中，在 `Linux` 下可以用 `tshark` 命令可以将 `leftover capture data` 单独提取出来，储存进 usbdata.txt
+
+```shell
+tshark -r example.pcap -T fields -e usb.capdata > usbdata.txt
+```
+
+运行命令并查看 `usbdata.txt` 发现数据包长度为 8 个字节
+
+运行键盘流量转换脚本，可以得到键盘按键结果
+
+```python
+mappings = { 0x04:"A",  0x05:"B",  0x06:"C", 0x07:"D", 0x08:"E", 0x09:"F", 0x0A:"G",  0x0B:"H", 0x0C:"I",  0x0D:"J", 0x0E:"K", 0x0F:"L", 0x10:"M", 0x11:"N",0x12:"O",  0x13:"P", 0x14:"Q", 0x15:"R", 0x16:"S", 0x17:"T", 0x18:"U",0x19:"V", 0x1A:"W", 0x1B:"X", 0x1C:"Y", 0x1D:"Z", 0x1E:"1", 0x1F:"2", 0x20:"3", 0x21:"4", 0x22:"5",  0x23:"6", 0x24:"7", 0x25:"8", 0x26:"9", 0x27:"0", 0x28:"n", 0x2a:"[DEL]",  0X2B:"\t", 0x2C:" ",  0x2D:"-", 0x2E:"=", 0x2F:"[",  0x30:"]",  0x31:"\\", 0x32:"~", 0x33:";",  0x34:"'", 0x36:",",  0x37:"." }
+nums = []
+keys = open('usbdata.txt')
+for line in keys:
+    if line[0]!='0' or line[1]!='0' or line[3]!='0' or line[4]!='0' or line[9]!='0' or line[10]!='0' or line[12]!='0' or line[13]!='0' or line[15]!='0' or line[16]!='0' or line[18]!='0' or line[19]!='0' or line[21]!='0' or line[22]!='0':
+         continue
+    nums.append(int(line[6:8],16))
+    # 00:00:xx:....
+keys.close()
+output = ""
+for n in nums:
+    if n == 0 :
+        continue
+    if n in mappings:
+        output += mappings[n]
+    else:
+        output += '[unknown]'
+print('output :' + output)
+```
+
+#### 鼠标信息
+
+鼠标移动时表现为连续性，与键盘击键的离散性不一样，不过实际上鼠标动作所产生的数据包也是离散的，毕竟计算机表现的连续性信息都是由大量离散信息构成的。
+
+每一个数据包的数据区有四个字节，第一个字节代表按键，当取 0x00 时，代表没有按键、为 0x01 时，代表按左键，为 0x02 时，代表当前按键为右键。第二个字节可以看成是一个 signed byte 类型，其最高位为符号位，当这个值为正时，代表鼠标水平右移多少像素，为负时，代表水平左移多少像素。第三个字节与第二字节类似，代表垂直上下移动的偏移。得到这些点的信息后, 即可恢复出鼠标移动轨迹。
+
+鼠标数据转换脚本
+
+```python
+nums = [] 
+keys = open('usbdata.txt','r') 
+posx = 0 
+posy = 0 
+for line in keys: 
+if len(line) != 12 : 
+     continue 
+x = int(line[3:5],16) 
+y = int(line[6:8],16) 
+if x > 127 : 
+    x -= 256 
+if y > 127 : 
+    y -= 256 
+posx += x 
+posy += y 
+btn_flag = int(line[0:2],16)  # 1 for left , 2 for right , 0 for nothing 
+if btn_flag == 1 : 
+    print(posx + "," + posy) 
+keys.close()
+```
 
 
 
@@ -740,7 +1002,14 @@ $ mount file path
 
 流量包：
 
-1. 
+1. 做题方法一般是，先分析请求，然后文件提取，再进一步分析
+2. 常见题型
+   - 上传/下载文件类型 (http，蓝牙obex)，较难的可能是分段上传或下载
+   - 访问特定的加密解密网站 (md5，base64)
+   - USB 流量分析
+   - WiFi 无线密码破解
+   - sql 注入攻击
+   - 后台扫描 + 弱密码爆破 + 菜刀
 
 音频：
 
