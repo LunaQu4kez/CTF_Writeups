@@ -210,6 +210,20 @@ i 检测图像中的信息是否是用invisible secrets嵌入的。
 
 
 
+### 二维码
+
+如果拿到了一串二进制，而数量正好是整数的平方，可以考虑转二维码
+
+在线二维码修复网站：https://merricx.github.io/qrazybox/
+
+碰到下面这种是 Aztec Code，可用这个[在线网站](https://products.aspose.app/barcode/recognize/aztec#result)扫描
+
+<div align="center">
+    <img src=".\pic\misc05.png" alt="" width="200">
+</div>
+
+
+
 
 
 ## 压缩包
@@ -287,6 +301,33 @@ Session completed.
 #### ARCHPR
 
 工具 ARCHPR 同样在密码爆破时很好用！
+
+
+
+### RAR 文件格式
+
+| 结构名称   | 大小   | 内容                                         |
+| ---------- | ------ | -------------------------------------------- |
+| HEAD_CRC   | 2 byte | 所有块或块部分的 CRC                         |
+| HEAD_TYPE  | 1 byte | 块类型                                       |
+| HEAD_FLAGS | 2 byte | 块标记 (块标记第一位被置 1，还存在 ADD_SIZE) |
+| HEAD_SIZE  | 2 byte | 块大小                                       |
+| ADD_SIZE   | 4 byte | 增加块大小 (可选)                            |
+
+文件块的第 3 个字节是块类型，也叫头类型。
+
+| 头类型 | 含义         |
+| ------ | ------------ |
+| 0x72   | 标记块       |
+| 0x73   | 压缩文件头块 |
+| 0x74   | 文件头块     |
+| 0x75   | 注释头       |
+
+有时给出的 RAR 文件头部各个字块可能被人为修改，导致无法识别。需识别并修复。
+
+<div align="center">
+    <img src=".\pic\misc04.png" alt="" width="600">
+</div>
 
 
 
@@ -373,6 +414,292 @@ quetion.zip
 
 
 
+## 流量提取
+
+PCAP 文件，可能需要先进行修复和重构传输文件，再进行分析。总体大概分为
+
+- 流量包修复
+- 协议分析
+- 数据提取
+
+
+
+
+
+## 音频分析
+
+### Audacity 检查波形和频谱隐写
+
+工具 Audacity
+
+
+
+### MP3 隐写
+
+MP3Stego 进行解密，其中 `pass` 是文件加密的密码
+
+```shell
+$ decode -X -P pass file.mp3
+```
+
+可以用以下命令加密，hidden_text.txt 是要加密进 mp3 文件的文本，file.wav 是参与加密的音频，最终产物是 out.mp3
+
+```shell
+$ encode -E hidden_text.txt -P pass file.wav out.mp3
+```
+
+命令大全
+
+```
+-X               提取隐藏数据
+-P <text>        用密码用于嵌入
+-A               编写AIFF输出PCM声音文件
+-s <sb>          仅在此SB（仅调试）
+   inputBS       编码音频的输入位
+   outPCM        输出PCM声音文件（DFLT输入+.AIF | .pcm）
+   outhidden     输出隐藏的文本文件（dflt inputbs+.txt）
+```
+
+
+
+### 音频 LSB 隐写
+
+使用工具 Silenteye 检验和破译
+
+
+
+
+
+## 内存、磁盘取证
+
+内存中储存的数据比硬盘更实时和动态，包括临时缓存、解密密钥等
+
+常见的内存镜像文件后缀有：
+
+- .raw  内存取证工具 dumplt 的
+- .vmem  虚拟机的虚拟内存文件
+- .img  mac 系统的文件镜像副本
+- .dmp
+- .data
+
+常见的磁盘
+
+
+
+### Volatility 工具
+
+**获取内存镜像详细信息**
+
+imageinfo 是 Volatility 中用于获取内存镜像信息的命令。它可以用于确定内存镜像的操作系统类型、版本、架构等信息，以及确定应该使用哪个插件进行内存分析
+
+```shell
+python2 vol.py -f Challenge.raw imageinfo  # -f：指定分析的内存镜像文件名
+```
+
+```
+Suggested Profile(s) 显示了 Volatility 推荐的几个内存镜像分析配置文件，可以根据这些配置文件来选择合适的插件进行内存分析
+AS Layer2 显示了使用的内存镜像文件路径
+KDBG 显示了内存镜像中的 KDBG 结构地址
+Number of Processors 显示了处理器数量
+Image Type 显示了操作系统服务包版本
+Image date and time 显示了内存镜像文件的创建日期和时间
+```
+
+**获取正在运行的程序**
+
+这里我们用 Win7SP1x64 配置文件进行分析，Volatility 的 pslist 插件可以遍历内存镜像中的进程列表，显示每个进程的进程 ID、名称、父进程 ID、创建时间、退出时间和路径等信息
+
+```shell
+python2 vol.py -f Challenge.raw --profile=Win7SP1x64 pslist
+# --profile 用于指定操作系统
+```
+
+**提取正在运行的程序**
+
+Volatility 的 procdump 插件可以根据进程 ID 或进程名称提取进程的内存映像，并保存为一个单独的文件
+
+比如这里提取 iexplore.exe 这个程序，它的进程 pid 号为 2728
+
+```shell
+python2 vol.py -f Challenge.raw --profile=Win7SP1x64 procdump -p 2728 -D ./
+# p：pid进程号
+# D：提取程序后保存的地址，./指的是当前shell正在运行的文件夹地址，输入pwd命令可以查看shell当前的地址，简单来说就是保存到当前文件夹
+```
+
+成功导出，导出后文件名为 executable.2728.exe
+
+**查看在终端里执行过的命令**
+
+Volatility 的 cmdscan 插件可以扫描内存镜像中的进程对象，提取已执行的 cmd 命令，并将其显示在终端中
+
+```shell
+python2 vol.py -f Challenge.raw --profile=Win7SP1x64 cmdscan
+```
+
+移动到了 Documents 目录下，echo 一次字符串，然后创建了一个名为 hint.txt 的文件
+
+**查看进程在终端里运行的命令**
+
+Volatility中的cmdline插件可以用于提取进程执行的命令行参数和参数值
+
+```shell
+python2 vol.py -f Challenge.raw --profile=Win7SP1x64 cmdline
+```
+
+**查找内存中的文件**
+
+Volatility 的 filescan 插件可以在内存中搜索已经打开的文件句柄，从而获取文件名、路径、文件大小等信息
+
+找到 hint.txt 文件，可以使用以下命令
+
+```shell
+python2 vol.py -f Challenge.raw --profile=Win7SP1x64 filescan | grep hint.txt
+```
+
+**提取内存中的文件**
+
+Volatility 的 dumpfiles 插件可以用来提取系统内存中的文件
+
+这里我要提取 hint.txt 文件，hint.txt 的内存位置为 0x000000011fd0ca70
+
+```shell
+python2 vol.py -f Challenge.raw --profile=Win7SP1x64 dumpfiles -Q 0x000000011fd0ca70 -D ./
+# Q：内存位置
+# D：提取程序后保存的地址，./指的是当前shell正在运行的文件夹地址，输入pwd命令可以查看shell当前的地址，简单来说就是保存到当前文件夹
+```
+
+提取出来的文件名是包含内存地址的，更改一下后缀名即可运行
+
+**查看浏览器历史记录**
+
+Volatility 中的 iehistory 插件可以用于提取 Internet Explorer 浏览器历史记录
+
+```shell
+python2 vol.py -f Challenge.raw --profile=Win7SP1x64 iehistory
+```
+
+**提取用户密码hash值并爆破**
+
+Volatility 中的 Hashdump 插件可以用于提取系统内存中的密码哈希值
+
+```shell
+python2 vol.py -f Challenge.raw --profile=Win7SP1x64 hashdump
+```
+
+提取到的密码 hash 值，复制粘贴到本地本文 txt 里，可以使用这个[在线网站](https://crackstation.net/)，将 hash 值粘贴上去，就可以得到用户密码明文
+
+**使用 mimikatz 提取密码**
+
+mimikatz 是一个开源的用于从 Windows 操作系统中提取明文密码，哈希值以及其他安全凭据的工具
+
+```shell
+python2 vol.py -f Challenge.raw --profile=Win7SP1x64 mimikatz
+```
+
+**查看剪切板里的内容**
+
+Volatility 中的 clipboard 插件可以用于从内存转储中提取剪贴板数据
+
+```shell
+python2 vol.py -f Challenge.raw --profile=Win7SP1x64 clipboard
+```
+
+**查看正在运行的服务**
+
+svcscan 是 Volatility 中的一个插件，用于扫描进程中所有的服务
+
+执行了 svcscan 之后，每列代表服务的一些信息，包括服务名、PID、服务状态、服务类型、路径等等
+
+```shell
+svcscan
+```
+
+**查看网络连接状态**
+
+Volatility 中的 netscan 插件可以在内存转储中查找打开的网络连接和套接字，该命令将显示所有当前打开的网络连接和套接字。输出包括本地和远程地址、端口、进程 ID 和进程名称等信息
+
+```shell
+python2 vol.py -f Challenge.raw --profile=Win7SP1x64 netscan
+```
+
+**查看注册表信息**
+
+printkey 是 Volatility 工具中用于查看注册表的插件之一。它可以帮助分析人员查看和解析注册表中的键值，并提供有关键值的详细信息，如名称、数据类型、大小和值等
+
+```shell
+python2 vol.py -f Challenge.raw --profile=Win7SP1x64 printkey
+```
+
+然后使用 hivelist 插件来确定注册表的地址
+
+```shell
+python2 vol.py -f Challenge.raw --profile=Win7SP1x64 hivelist
+```
+
+查看注册表 software 项
+
+hivedump 是一个 Volatility 插件，用于从内存中提取 Windows 注册表的内容，这里选择第一个来演示
+
+```shell
+python2 vol.py -f Challenge.raw --profile=Win7SP1x64 hivedump -o 0xfffff8a00127d010
+# o：hivelist列出的Virtual值
+```
+
+根据名称查看具体子项的内容，以 SAM\Domains\Account\Users\Names 做演示，这个是 Windows 系统中存储本地用户账户信息的注册表路径，它包含了每个本地用户账户的名称和对应的 SID 信息
+
+```shell
+python2 vol.py -f Challenge.raw --profile=Win7SP1x64 printkey -K "SAM\Domains\Account\Users\Names"
+```
+
+如果要提取全部的注册表，可以用这个命令
+
+```shell
+python2 vol.py -f Challenge.raw --profile=Win7SP1x64 dumpregistry -D ./
+```
+
+
+
+### BitLocker
+
+BitLocker 是 Windows 自带的驱动器加密技术，支持 FAT 和 NTFS 两种格式，可以加密电脑的整个系统分区，也可以加密便携储存设备 (U盘, 移动硬盘)
+
+BitLocker 使用 AES 128 位或 256 位加密，这种加密方式只要密码比较复杂，一般很难被破解
+
+BitLocker 的破解方式有几种：
+
+- 输入密码
+- 用恢复密钥解密
+- 通过内存镜像破解，前提是内存中有密钥痕迹，即计算机解密过 BitLocker，可以使用 EFDD 工具解密
+
+
+
+### TrueCrypt
+
+TrueCrypt，是一款免费开源的加密软件，同时支持 Windows Vista,7/XP, Mac OS X, Linux 等操作系统。TrueCrypt 不需要生成任何文件即可在硬盘上建立虚拟磁盘，用户可以按照盘符进行访问，所有虚拟磁盘上的文件都被自动加密，需要通过密码来进行访问。TrueCrypt 提供多种加密算法。但由于已经停止维护了，现在被 VeraCrypt 替代。
+
+TrueCrypt 的破解方式和 BitLocker 基本相同。
+
+
+
+### 磁盘挂载
+
+常见的磁盘分区格式有以下几种
+
+- Windows: FAT12 -> FAT16 -> FAT32 -> NTFS
+- Linux: EXT2 -> EXT3 -> EXT4
+
+对于 fat 文件，使用 VeraCrypt 即可
+
+对于 ext 文件，使用 `mount` 命令，需要 root 权限，其中 `file` 为 ext 文件，`path` 为要挂载的路径
+
+```shell
+$ mount file path
+```
+
+
+
+
+
 
 ## 总结
 
@@ -390,6 +717,7 @@ quetion.zip
 4. 检查 LSB 隐写 !!! (更常见于 png 格式)
 5. 如果发生错误打不开或宽高明显不对，检查 CRC 校验
 6. 检查加密 (常见于 jpg)
+7. 考虑二维码相关
 
 压缩包：
 
@@ -398,9 +726,25 @@ quetion.zip
 3. 压缩文件是加密的，可以考虑伪加密
 4. 给出一个文件，压缩包内还有一个文件，两个文件 CRC 相同，考虑明文攻击
 
+流量包：
 
+1. 
 
+音频：
 
+1. 音频在波形和频谱上的隐写，可使用 Audacity 查看，可能多和摩斯电码相关
+2. MP3 文件考虑 MP3 隐写 (MP3Stego)
+3. 音频 LSB 隐写 (Silenteye)
+
+内存、磁盘取证：
+
+1. 要先 imageinfo 拿到版本号
+2. 关注可疑进程 (比如 notepad)
+3. 工具总结：
+   - 内存取证：Volatility
+   - 镜像挂载：VeraCrypt (挂载 fat 文件)，`mount` (挂载 ext2 等)
+   - 密码恢复：EFDD
+   - 磁盘加密解密：BitLocker，VeraCrypt
 
 
 
