@@ -29,7 +29,7 @@ $ hexdump -C filename
 
 | 文件类型         | 后缀 | 文件头               |
 | ---------------- | ---- | -------------------- |
-| JPEG             | jpg  | FF D8 FF E1          |
+| JPEG             | jpg  | FF D8 FF E1/E0       |
 | PNG              | png  | 89 50 4E 47          |
 | GIF              | gif  | 47 49 46 38          |
 | TIFF             | tif  | 49 49 2A 00          |
@@ -174,7 +174,7 @@ for i in range(1024):
 		data = crcbp[12:16] + struct.pack('>i', i) + struct.pack('>i', j) + crcbp[24:29]
 		crc32 = binascii.crc32(data) & 0xffffffff
 		if crc32 == crc_val:
-			print(i + " " + j)
+			print(i, j)
 			print("hex " + hex(i) + " " + hex(j))
 ```
 
@@ -1027,7 +1027,46 @@ $ mount file path
    - 密码恢复：EFDD
    - 磁盘加密解密：BitLocker，VeraCrypt
 
+其他：
 
+1. MISC 脑洞题比较多，要多想象，比如键盘位置
+
+2. 编码特征
+
+   | 名称             | 示例             | 特征                   |
+   | ---------------- | ---------------- | ---------------------- |
+   | Base64           | MTIxMg==         | 大小写字母，最后=      |
+   | Base32           | GAUSNX=          | 大写字母，最后可能=    |
+   | Base16           | 19836498         | 一大串数字，有个别字母 |
+   | URL              | %3D%231a         | %，后面是 16 进制      |
+   | shellcode        | \x54\x68\x65\x7f | 16 进制机器码          |
+   | Quoted-printable | =E5=C9=95        | =加 16 进制            |
+   | UUencode         | 6OMFX]L#         | 32-96 间的 ASCII       |
+   | XXencode         | 4NjS0-eRKpk      | 0-63 间的 ASCII        |
+   | Unicode          | \u5210\ue15c     | u 是特点               |
+
+   敲击码
+
+   ```
+     1  2  3  4  5
+   1 A  B C/K D  E
+   2 F  G  H  I  J 
+   3 L  M  N  O  P
+   4 Q  R  S  T  U
+   5 V  W  X  Y  Z
+   ```
+
+3. 混淆
+
+   - VBScript.Encode
+   - ppencode：把 Perl 代码转换成只有英文字母的字符串
+   - rrencode：把 ruby 代码全部转换成符号
+   - jjencode/aaencode：Javascript -> 颜文字
+   - JSfuck：用 6 个字符 ` ( ) [ ] ! +` 来对JavaScript进行编码
+   - jother：密文为 8 个字符 `! + ( ) [ ] { }`，在浏览器中 console 执行即可
+   - brainfuck：由这 8 种符号组成 `> < + - . , [ ]` 
+   - Ook：由 Ook. Ook? Ook! 组成
+   - Npiet：特点文档是像素点的图片
 
 
 
