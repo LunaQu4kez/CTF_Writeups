@@ -2,6 +2,8 @@
 
 密码学
 
+[TOC]
+
 
 
 ## 编码
@@ -218,6 +220,438 @@ $$
 #### 键盘密码
 
 略
+
+
+
+
+
+## 现代密码学
+
+概念：非对称加密，公钥，密钥
+
+
+
+### RSA
+
+1) 选取不相等的大质数 $p$，$q$，计算 $N=pq$ 
+2) 根据欧拉函数求 $r=\phi(N)=(p-1)(q-1)$ 
+3) 选择一个小于 $r$ 且和 $r$ 互质的整数 $e$，求 $e$ 关于 $r$ 的模逆元，记为 $d$，即 $ed \equiv 1(mod\,\,r)$ 
+4) 销毁 $p$ 和 $q$ 的记录
+
+假设要加密的明文是 $n$，那么密文 $c\equiv n^e(mod\,\,N)$，接收到密文 $c$ 后，解密明文 $n\equiv c^d(mod\,\,N)$ 
+
+RSA 也可以为一个消息进行签名，防止消息在传播过程中被篡改。发消息者可以为消息计算一个 Hash 值加在消息后面，再用 RSA 加密，接收者将密文解密，并将自己计算的 Hash 值做对比，判断有没有被篡改消息。
+
+
+
+### RSA 基础攻击
+
+#### 因数分解
+
+$N$ 较小 (一般是小于 512 bit) 时，可以尝试直接分解 $N$ 
+
+可以使用 factordb 或 yafu
+
+```python
+from gmpy2 import *
+
+p = ...
+q = ...
+c = ...
+e = ...
+
+d = invert(e, (p-1)*(q-1))
+m = powmod(c, d, p*q)
+
+print(m)
+```
+
+#### 共享素数
+
+同时生成了多个公钥，如果生成的公钥中有两组 $N$ 使用了相同的素数，即如果能找到两个不互素的 $N$，那么可以求它们的最大公因数得到 $p$, $q$，从而破解 RSA 加密
+
+```python
+from gmpy2 import *
+
+e = ...
+n1 = ...
+n2 = ...
+c1 = ...
+c2 = ...
+
+p = gcd(n1, n2)
+q = n1 // p
+
+d = invert(e, (p-1)*(q-1))
+m = powmod(c1, d, n1)
+
+print(m)
+```
+
+#### 低指数加密攻击 (小明文攻击)
+
+公钥中 $e$ 获得明文 $m$ 足够小，以至于加密时得到的值 $m^e$ 小于 $N$，这样对 $N$ 取模结果不变，那么可以直接对密文进行开根，得到明文
+
+```python
+from gmpy2 import *
+
+e = ...
+c = ...
+
+print(iroot(c, e)[0])
+```
+
+#### p, q 很接近
+
+这种情况下，枚举 $\sqrt{N}$ 附近的数
+
+```python
+from gmpy2 import *
+
+n = ...
+c = ...
+e = ...
+sqr = iroot(n, 2)[0]
+for i in range(10000):
+	if n % (sqr + i) == 0:
+		p = sqr + i
+		q = n // p
+		break
+d = invert(e, (p-1)*(q-1))
+print(powmod(c, d, n))
+```
+
+#### 共模攻击
+
+两组公钥使用**相同模数 $N$**，不同的私钥对**同一组明文**进行加密时，且两组公钥使用的 $e$ 是互素的，可以通过共模攻击求解明文
+
+若有
+$$
+\begin{cases}
+gcd(e_1,e_2)=1\\
+c_1 \equiv m^{e_1}(mod\,\,N)\\
+c_2 \equiv m^{e_2}(mod\,\,N)
+\end{cases}
+$$
+那么由 Bezout 定理，方程 $xe_1+ye_2=1$ 有整数解，假设为 $(s_1,s_2)$，那么有
+$$
+(c_1^{s_1}\cdot c_2^{s_2})mod\,\,N=m\,mod\,\,N
+$$
+其中，$(s_1,s_2)$ 可以用欧几里得算法求解，这样可以在不知道 $d$ 的情况下求解明文 $m$.
+
+```python
+from gmpy2 import *
+
+e1 = ...
+e2 = ...
+n = ...
+c1 = ...
+c2 = ...
+
+s = gcdext(e1, e2)
+s1 = s[1]
+s2 = s[2]
+print(powmod(c1, s1, n) * powmod(c2, s2, n) % n)
+```
+
+#### 低指数加密广播攻击
+
+多组公钥加密同一消息且公钥中加密指数 $e$ 相同
+$$
+\begin{cases}
+c_1 \equiv m^{e_1}(mod\,\,n_1)\\
+c_2 \equiv m^{e_2}(mod\,\,n_2)\\
+...\\
+c_k \equiv m^{e_k}(mod\,\,n_k)\\
+\end{cases}
+$$
+由中国剩余定理，有通解 $m^e=\sum\limits_{i=1}^{k}c_it_iM_i\ mod\ n$，其中 $N=n_1\cdot n_2\cdot ...\cdot n_k$，$M_i=\frac{N}{n_i}$，$M_it_i\equiv 1(mod \ n_i)$ 
+
+对通解 $m^e$ 开根即可
+
+```python
+from gmpy2 import *
+
+e = ...
+n_list = [...]
+c_list = [...]
+N = 1
+for n in n_list:
+    N *= n
+M_list = []
+for n in n_list:
+    M_list.append(N//n)
+t_list = []
+for i in range(len(n_list)):
+    t_list.append(invert(M_list[i], n_list[i]))
+summary = 0
+for i in range(len(n_list)):
+    summary = (summary + c_list[i] * t_list[i] * M_list[i]) % N
+m = iroot(summary, e)[0]
+print(m)
+```
+
+#### Wiener 攻击 (连分数攻击)
+
+在 $d$ 较小时获得私钥 $d$，因此也被称为低解密指数攻击
+
+在 RSA 中，有
+$$
+\phi(N)=(p-1)(q-1)=N-(p+q)+1\approx N
+$$
+因为
+$$
+ed \equiv 1(mod\ \phi(N))
+$$
+那么有
+$$
+ed-1=k\phi(N)
+$$
+同时除以 $d\phi(N)$ 有
+$$
+\frac{e}{\phi(N)}-\frac{k}{d}=\frac{1}{d\phi(N)}
+$$
+用 $N$ 替换 $\phi(N)$
+$$
+\frac{e}{N}-\frac{k}{d}=\frac{1}{dN}\approx0
+$$
+
+$$
+\frac{e}{N}\approx\frac{k}{d}
+$$
+
+对于等式左边的数，可以将其展开为连分数，再遍历每一组近似解，有可能找到等式右边的值
+
+假设一组解为 $(d,k)$ ，那么有
+$$
+\phi(N)=\frac{ed-1}{k}
+$$
+即
+$$
+p+q=N-\phi(N)+1
+$$
+这样可以计算出 $p$, $q$ ，验算 $pq=N$ 即可验证 $d$ 是否正确
+
+但是，Wiener 攻击并不是每次都有效，需要满足以下条件：
+$$
+q<p<2q  \ \ \text{and} \ \ d<\frac{1}{3}N^{\frac{1}{4}}
+$$
+
+```python
+from gmpy2 import *
+
+
+class ContinuedFraction():
+    def __init__(self, numerator, denumerator):
+        self.numberlist = []
+        self.fractionlist = []
+        self.GenerateNumberlist(numerator, denumerator)
+        self.GenerateFractionlist()
+        return
+
+    def GenerateNumberlist(self, numerator, denumerator):
+        while numerator != 1:
+            quotient = numerator // denumerator
+            remainder = numerator % denumerator
+            self.numberlist.append(quotient)
+            numerator = denumerator
+            denumerator = remainder
+        return
+
+    def GenerateFractionlist(self):
+        self.fractionlist.append([self.numberlist[0], 1])
+        for i in range(1, len(self.numberlist)):
+            numerator = self.numberlist[i]
+            denumerator = 1
+            for j in range(i):
+                temp = numerator
+                numerator = denumerator + numerator * self.numberlist[i - j - 1]
+                denumerator = temp
+            self.fractionlist.append([numerator, denumerator])
+        return
+
+
+n = ...
+e = ...
+c = ...
+a = ContinuedFraction(e, n)
+for k, d in a.fractionlist:
+    s = powmod(c, d, n)
+    try:
+        print(s.decode())
+    except Exception:
+        pass
+```
+
+#### Rabin 攻击
+
+Rabin 是一种与 RSA 类似但不是单射的加密方式，一个密文能解出 4 个明文，最终根据哪个有意义来决定明文是什么
+
+取两个大素数 $(p,q)$ 满足 $p\equiv q\equiv 3(mod\ 4)$ 
+
+加密：
+$$
+c= m^2(mod\ n)
+$$
+解密：求解
+$$
+m^2 \equiv c(mod \ n)
+$$
+由于 $p,q|n$，相当于求解
+$$
+\begin{cases}
+m^2 \equiv c(mod\ p)\\
+m^2 \equiv c(mod\ q)
+\end{cases}
+$$
+对于 $m^2 \equiv c(mod\ p)$ 来说，$c$ 是模 $p$ 的二次剩余，即 $c^{\frac{p-1}{2}}\equiv 1(mod\ p)$ 
+
+带入原式
+$$
+m^2\equiv c \equiv c^{\frac{p-1}{2}}\cdot c\equiv c^{\frac{p+1}{2}}(mod\ p)
+$$
+开方得
+$$
+\begin{cases}
+m_1 \equiv c^{\frac{p+1}{4}}(mod\ p)\\
+m_2 \equiv (p-c^{\frac{p+1}{4}})(mod\ p)
+\end{cases}
+$$
+同理解出另外一式得出 $(m_3, m_4)$ 
+
+当 RSA 使用 $e=2$，同时 $p$, $q$ 满足上述约束时，可以使用 Rabin 算法解密
+
+**注意**：此时已知 $p$, $q$，但不能直接求出 $d$. 因为 $p\equiv q\equiv 3(mod\ 4)$ ，有
+$$
+\phi(N)=(p-1)(q-1)=(2k_1+2)(2k_2+2)
+$$
+有 $4|\phi(N)$，所以 $e$ 和 $\phi(N)$ 不互素，无法求出 $d$ 
+
+```python
+from gmpy2 import *
+
+p = ...
+q = ...
+c = ...
+n = p * q
+
+c1 = powmod(c, (p+1)//4, p)
+c2 = powmod(c, (q+1)//4, q)
+cp1 = p - c1
+cp2 = q - c2
+
+t1 = invert(p, q)
+t2 = invert(q, p)
+
+m1 = (q*c1*c2 + p*c2*t1) % n
+m2 = (q*c1*t2 + p*cp2*t1) % n
+m3 = (q*cp1*t2 + p*c2*t1) % n
+m4 = (q*cp1*t2 + p*cp2*t1) % n
+
+print(m1)
+print(m2)
+print(m3)
+print(m4)
+```
+
+#### $d_p$, $d_q$ 泄露攻击
+
+$$
+d_p=d\ mod(p-1)\\
+d_q=d\ mod(q-1)
+$$
+
+上述方程本用于快速解密，但如果泄露，就可能被破解。
+
+已知 $d_p$, $d_q$, $p$, $q$, $c$，在不知道 $e$ 的情况下，也可以求解明文
+$$
+\begin{cases}
+m_1 \equiv c^d(mod\ p)\\
+m_2 \equiv c^d(mod\ q)
+\end{cases}
+$$
+根据欧拉降幂，得
+$$
+\begin{cases}
+m_1 \equiv c^{d_pmod(p-1)}(mod\ p)\\
+m_2 \equiv c^{d_qmod(q-1)}(mod\ q)
+\end{cases}
+$$
+将 $c^d=kp+m_1$ 带入 $m_2$，得
+$$
+m_2\equiv (kp+m_1)mod \ q
+$$
+两边同时减去 $m_1$，得
+$$
+(m_2-m_1)\equiv kp(mod\ q)\\
+(m_2-m_1)p^{-1}\equiv k(mod\ q)
+$$
+因为明文是小于 $N=pq$ 的，所以 $k$ 一定小于 $q$，所以有 $k=(m_2-m_1)p^{-1}\ mod\ q$，代入之前的 $c^d$ 式子，得
+$$
+m=c^d=((m_2-m_1)p^{-1}\ mod\ q)p+m_1
+$$
+
+```python
+from gmpy2 import *
+
+p = ...
+q = ...
+dp = ...
+dq = ...
+c = ...
+
+invp = invert(p, q)
+m1 = powmod(c, dp, p)
+m2 = powmod(c, dq, q)
+m = (((m2 - m1) * invp) % q) * p + m1
+print(m)
+```
+
+#### $d_p$ 泄露攻击
+
+当 $d_p$, $d_q$ 之一发生泄漏，同时知道公钥，也可能从中获得 $d$ 
+
+由 $d_p=d\ mod(p-1)$ 有 $d=k_1(p-1)+d_p$ 
+$$
+ed=k_1e(p-1)+d_pe\\
+ed\equiv 1(mod\ \phi(n))\\
+k_1e(p-1)+d_pe=k_2\phi(n)+1
+$$
+已知，
+$$
+\phi(n)=(p-1)(q-1)
+$$
+代入得
+$$
+ed_p=[k_2(q-1)-k_1e](p-1)+1
+$$
+已知 $d_p<p-1$，当 $[k_2(q-1)-k_1e](p-1)=e$ 时，等式左边小于右边，所以可以记 $X=[k_2(q-1)-k_1e]$ 
+
+然后遍历 $X\rightarrow [1,e]$，一定存在某个值使得等式成立，同时求得 $N$ 的因子 $p$ 
+
+```python
+from gmpy2 import *
+
+dp = ...
+e = ...
+n = ...
+c = ...
+
+for x in range(1, e):
+    if (e * dp - 1) % x == 0:
+        p = (e * dp - 1) // x + 1
+        if n % p == 0:
+            q = n // p
+            d = invert(e, (p-1)*(q-1))
+            m = powmod(c, d, n)
+            print(m)
+```
+
+
+
+
+
+
 
 
 
