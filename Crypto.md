@@ -891,3 +891,121 @@ $$
 <div align="center">
     <img src=".\pic\crypto08.png" alt="" width="500">
 </div>
+
+
+### 伪随机数
+
+MT19937 梅森旋转算法，可以在 $[0,2^{k-1}]$ 的区间生成离散型均匀分布的随机数，一些语言 (R、Python、Ruby、PHP) 默认的伪随机数生成器，Python 代码如下
+
+```python
+def _int32(x):
+    return int(0xFFFFFFFF & x)
+
+
+class MT19937:
+    # 根据seed初始化624的state
+    def _init_(self, seed):
+        self.mt = [0] * 624
+        self.mt[0] = seed
+        self.mti = 0
+        for i in range(1, 624):
+            self.mt[i] = _int32(1812433253 * (self.mt[i - 1] ^ self.mt[i - 1] >> 30) + i)
+
+    # 提取伪随机数
+    def extract_number(self):
+        if self.mti == 0:
+            self.twist()
+        y = self.mt[self.mti]
+        y = y ^ y >> 11
+        y = y ^ y << 7 & 2636928640
+        y = y ^ y << 15 & 4022730752
+        y = y ^ y >> 18
+        self.mti = (self.mti + 1) % 624
+        return _int32(y)
+    
+    def twist(self):
+        for i in range(0, 624):
+            y = _int32((self.mt[i] & 0x80000000) + (self.mt[(i + 1) % 624] & 0x7fffffff))
+            self.mt[i] = (y >> 1) ^ self.mt[(i + 397) % 624]
+            if y % 2 == 0:
+                self.mt[i] = self.mt[i] ^ 0x9908b0df
+```
+
+`MT19937(seed).extract_number()` 会返回随机数，Python 的 Random 类采用的就是这个方法。当获取足够多的随机数时，就可以对这个算法进行逆向，从而能够向前恢复随机数或向后预测随机数
+
+```python
+from random import Random
+
+
+def inverse_right(res, shift, bits=32):
+    tmp = res
+    for i in range(bits // shift):
+        tmp = res ^ tmp >> shift
+    return tmp
+
+
+def inverse_left_mask(res, shift, mask, bits=32):
+    tmp = res
+    for i in range(bits // shift):
+        tmp = res ^ tmp << shift & mask
+    return tmp
+
+
+def inv_extract_number(y):
+    y = inverse_right(y, 18)
+    y = inverse_left_mask(y, 15, 4022730752)
+    y = inverse_left_mask(y, 7, 2636928640)
+    y = inverse_right(y, 11)
+    return y
+
+
+def recover_mt(record):
+    """
+    恢复624个state，即可预测后面的随机数
+    :param record: 624个随机数
+    :return: 
+    """
+    state = [inv_extract_number(i) for i in record][:624]
+    gen = Random()
+    gen.setstate((3, tuple(state + [0]), None))
+    return gen
+```
+
+
+
+### LCG
+
+LCG (Linear Congruential Generators, 线性同余生成器) 是一种产生伪随机数的方法，根据递推公式产生随机数
+$$
+S_{i+1}=(aS_i+b)\mod m
+$$
+其中，$a,b,m$ 是生成器设定的常数。这一类 LCG 题目，通常是给出部分常数或者连续的随机数，需要对之后的随机数做预测或是恢复种子。
+
+
+
+### 哈希函数
+
+哈希函数是一种从任何一种数据中创建小的数字指纹的方法，哈希函数把消息压缩成摘要，使得数据量变小。现在常用哈希函数来记录用户的密码、判断文件是否受损等。
+
+常见的哈希函数有 MD2、MD4、MD5、SHA1、SHA256 等
+
+一个良好的哈希函数应该具备以下特点：
+
+- 数据长度可以变，可以应用于任意长度的数据
+- 输出长度固定，哈希函数的输出长度应该固定
+- 效率高，对于消息 $m$，能够快速计算出 $H(m)$ 
+- 单向性，对于哈希值 $h$，很难找到 $m$ 使得 $H(m)=h$ 
+- 抗弱碰撞性，对于任意消息 $x$，很难找到另一消息 $y$ 使得 $H(x)=H(y)$ 
+- 抗强碰撞性，很难找到任意一对满足 $H(x)=H(y)$ 
+- 伪随机性，哈希函数的输出应满足伪随机性测试标准
+
+#### 哈希长度扩展攻击
+
+略
+
+
+
+### 国密算法
+
+略
+
