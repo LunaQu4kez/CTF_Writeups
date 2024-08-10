@@ -1,16 +1,16 @@
 # CTF Notes & Writeups
 
-CTF 学习笔记 and 比赛复盘
+CTF Learning Notes and CTF Match Writeups
 
 
 
 ## Notes
 
-[MISC 杂项](./Notes/MISC.md)
+[MISC](./Notes/MISC.md)
 
-[Crypto 密码学](./Notes/Crypto.md)
+[Crypto](./Notes/Crypto.md)
 
-[Reverse 逆向](./Notes/Reverse.md)
+[Reverse](./Notes/Reverse.md)
 
 
 
@@ -18,3 +18,4 @@ CTF 学习笔记 and 比赛复盘
 
 [TFC CTF 2024](./TFC_CTF_2024)
 
+[LIT CTF 2024](./LIT_CTF_2024)
