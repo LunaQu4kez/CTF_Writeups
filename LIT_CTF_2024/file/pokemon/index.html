@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Charizard vs Pikachu</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="gameboy">
+        <div class="screen">
+            <div id="win-sequence" class="win-sequence">
+                <img src="1.png" class="win-image">
+                <img src="2.png" class="win-image">
+                <img src="3.png" class="win-image">
+                <img src="4.png" class="win-image">
+                <img src="5.png" class="win-image">
+                <img src="6.png" class="win-image">
+                <img src="7.png" class="win-image">
+                <img src="8.png" class="win-image">
+                <img src="9.png" class="win-image">
+                <img src="10.png" class="win-image">
+                <img src="11.png" class="win-image">
+                <img src="12.png" class="win-image">
+                <img src="13.png" class="win-image">
+                <img src="14.png" class="win-image">
+                <img src="15.png" class="win-image">
+            </div> 
+            <div class="game-content">
+                <div class="battle-screen">
+                    <div id="charizard" class="pokemon">
+                        <img src="charizard.png" alt="Charizard">
+                        <p>HP: <span id="charizard-hp">100</span></p>
+                    </div>
+                    <div id="pikachu" class="pokemon">
+                        <img src="pikachu.png" alt="Pikachu">
+                        <p>HP: <span id="pikachu-hp">100</span></p>
+                    </div>
+                </div>
+                <div class="message-container">
+                    <p id="message" class="message">Choose your attack!</p>
+                </div>                
+                <div class="attack-options">
+                    <button onclick="attack('flamethrower')">Flamethrower</button>
+                    <button onclick="attack('scratch')">Scratch</button>
+                    <button onclick="attack('ember')">Ember</button>
+                </div>
+                <div class="reset-button-container">
+                    <button id="reset-button" onclick="resetGame()">Reset Game</button>
+                </div>
+           
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
