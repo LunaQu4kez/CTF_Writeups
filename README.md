@@ -19,3 +19,5 @@ CTF Learning Notes and CTF Match Writeups
 [TFC CTF 2024](./TFC_CTF_2024)
 
 [LIT CTF 2024](./LIT_CTF_2024)
+
+[idekCTF 2024](./idekCTF_2024)
