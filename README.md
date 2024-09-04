@@ -23,3 +23,5 @@ CTF Learning Notes and CTF Match Writeups
 [idekCTF 2024](./idekCTF_2024)
 
 [SekaiCTF 2024](./SekaiCTF_2024) 
+
+[第二届熵密杯](./第二届熵密杯) 
