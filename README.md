@@ -25,3 +25,7 @@ CTF Learning Notes and CTF Match Writeups
 [SekaiCTF 2024](./SekaiCTF_2024) 
 
 [第二届熵密杯](./第二届熵密杯) 
+
+[第三届熵密杯](./第三届熵密杯) 
+
+[湾区杯 2025](./湾区杯2025) 
